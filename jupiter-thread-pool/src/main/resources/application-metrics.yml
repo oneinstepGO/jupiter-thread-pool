@@ -1,0 +1,15 @@
+management:
+  endpoints:
+    web:
+      exposure:
+        include: 'info,health,metrics,prometheus'
+  endpoint:
+    prometheus:
+      enabled: ${dynamic-thread-pool.monitor.export.enabled:true}
+  server:
+    port: ${dynamic-thread-pool.monitor.export.port:18081}
+  prometheus:
+    metrics:
+      export:
+        step: ${dynamic-thread-pool.monitor.export.step:1s}
+        enabled: ${dynamic-thread-pool.monitor.export.enabled:true}

@@ -1,0 +1,11 @@
+# 采集配置
+scrape_configs:
+  # 采集任务名称
+  - job_name: 'thread-monitor-demo'
+    # 采集 url
+    metrics_path: '/actuator/prometheus'
+    # 采集频率
+    scrape_interval: 1s
+    static_configs:
+      # 采集目标
+      - targets: [ 'thread-monitor-demo:18081' ]

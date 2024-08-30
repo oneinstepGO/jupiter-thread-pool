@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <title>线程池列表</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-switch@3.3.4/dist/css/bootstrap3/bootstrap-switch.min.css">
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap-switch@3.3.4/dist/js/bootstrap-switch.min.js"></script>
+    <style>
+        .btn-spacing {
+            margin-right: 10px; /* Adjust the value as needed */
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="mt-5 mb-5 text-center">线程池列表</h1> <!-- Added mb-5 class here -->
+    <table class="table table-bordered mt-3">
+        <thead class="thead-light">
+        <tr>
+            <th>名称</th>
+            <th>核心线程数</th>
+            <th>最大线程数</th>
+            <th>队列类型</th>
+            <th>队列容量</th>
+            <th>监控</th>
+            <th>自动调节</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="pool : ${threadPools}">
+            <td th:text="${pool.getPoolName()}"></td>
+            <td th:text="${pool.getCorePoolSize()}"></td>
+            <td th:text="${pool.getMaxPoolSize()}"></td>
+            <td th:text="${pool.getWorkQueue().getType()}"></td>
+            <td th:text="${pool.getWorkQueue().getCapacity()}"></td>
+            <td>
+                <label>
+                    <input type="checkbox" class="form-check-input" th:checked="${pool.getMonitor().getEnabled()}"
+                           data-toggle="switch" th:data-pool-name="${pool.getPoolName()}"
+                           onchange="toggleMonitor(this)"/>
+                </label>
+            </td>
+            <td>
+                <label>
+                    <input type="checkbox" class="form-check-input" th:checked="${pool.getAdaptive().getEnabled()}"
+                           data-toggle="switch" th:data-pool-name="${pool.getPoolName()}"
+                           onchange="toggleAdaptive(this)"/>
+                </label>
+            </td>
+            <td>
+                <a th:href="@{'/thread-pool/' + ${pool.getPoolName()}}"
+                   class="btn btn-primary btn-sm btn-spacing">编辑</a>
+                <button type="button" class="btn btn-warning btn-sm btn-spacing"
+                        th:data-pool-name="${pool.getPoolName()}" onclick="showResetModal(this)">重置
+                </button>
+                <a th:if="${pool.getMonitor().getEnabled()}" th:href="${pool.getMonitor().getMonitorUrl()}"
+                   class="btn btn-info btn-sm btn-spacing" target="_blank">跳转监控</a>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Bootstrap 模态框 -->
+<div class="modal fade" id="resetConfirmationModal" tabindex="-1" role="dialog"
+     aria-labelledby="resetConfirmationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="resetConfirmationModalLabel">确认重置</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                确认要重置该线程池吗？
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">取消</button>
+                <form id="resetForm" th:action="@{/thread-pool/reset}" method="post" style="display:inline;">
+                    <input type="hidden" name="poolName" id="resetPoolName"/>
+                    <button type="submit" class="btn btn-warning">确认</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $("[data-toggle='switch']").bootstrapSwitch();
+    });
+
+    function toggleMonitor(checkbox) {
+        const monitorEnabled = checkbox.checked;
+        const poolName = checkbox.getAttribute('data-pool-name');
+        const data = {
+            poolName: poolName,
+            enableMonitor: monitorEnabled
+        };
+
+        $.ajax({
+            url: '/thread-pool/switchMonitor',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            error: function (error) {
+                console.error('Error updating monitor status:', error);
+            }
+        });
+    }
+
+    function toggleAdaptive(checkbox) {
+        const enableAdaptive = checkbox.checked;
+        const poolName = checkbox.getAttribute('data-pool-name');
+        const data = {
+            poolName: poolName,
+            enableAdaptive: enableAdaptive
+        };
+
+        $.ajax({
+            url: '/thread-pool/switchAdaptive',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            error: function (error) {
+                console.error('Error updating Adaptive status:', error);
+            }
+        });
+    }
+
+    function showResetModal(button) {
+        document.getElementById('resetPoolName').value = button.getAttribute('data-pool-name');
+        $('#resetConfirmationModal').modal('show');
+    }
+</script>
+</body>
+</html>
