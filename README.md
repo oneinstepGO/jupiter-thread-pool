@@ -28,7 +28,7 @@
 - **本地配置**：只能查看和修改本机的线程池配置，无法查看和修改其他机器的线程池配置。使用者可以对接 RESTful API
   结合前端页面实现多机器的线程池管理。
 - **Grafana 配置**：监控面板的 JSON
-  配置文件位于 `thread-monitor/grafana/provisioning/dashboards/thread-pool-monitor.json` 目录下，可以直接导入到 Grafana
+  配置文件位于 `grafana/provisioning/dashboards/thread-pool-monitor.json` 目录下，可以直接导入到 Grafana
   中使用，默认数据源名称为 `Prometheus-Thread-Monitor`，可全局替换为你的数据源名称。
 - **生产使用**：如需在生产环境中使用，请务必先经过充分测试。
 

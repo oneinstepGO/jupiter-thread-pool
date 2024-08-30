@@ -5,6 +5,7 @@ import com.oneinstep.jupiter.threadpool.config.MonitorConfig;
 import com.oneinstep.jupiter.threadpool.config.ThreadPoolConfig;
 import com.oneinstep.jupiter.threadpool.metrics.ThreadPoolMetricsCollector;
 import com.oneinstep.jupiter.threadpool.support.RejectPolicyEnum;
+import com.oneinstep.jupiter.threadpool.support.RunnableNotSupportException;
 import io.micrometer.core.instrument.util.NamedThreadFactory;
 import jakarta.annotation.Nonnull;
 import lombok.Getter;
@@ -56,7 +57,7 @@ public class DynamicThreadPool extends ThreadPoolExecutor {
     public void execute(@Nonnull Runnable command) {
         if (!(command instanceof NamedRunnable namedRunnable)) {
             log.warn("NamedRunnable is required, but got {}", command.getClass());
-            throw new IllegalArgumentException("NamedRunnable is required");
+            throw new RunnableNotSupportException();
         }
 
         long submitTime = System.currentTimeMillis();
@@ -68,11 +69,11 @@ public class DynamicThreadPool extends ThreadPoolExecutor {
     protected void beforeExecute(Thread t, Runnable r) {
         super.beforeExecute(t, r);
         if (!(r instanceof NamedRunnable namedRunnable)) {
-            throw new IllegalArgumentException("NamedRunnable is required");
+            throw new RunnableNotSupportException();
         }
         namedRunnable.setStartTime(System.currentTimeMillis());
 
-        if (this.threadPoolConfig.getMonitor().getEnabled()) {
+        if (Boolean.TRUE.equals(this.threadPoolConfig.getMonitor().getEnabled())) {
             String taskName = namedRunnable.getName();
             long waitTime = namedRunnable.getStartTime() - namedRunnable.getSubmitTime();
             log.debug("Task {} waited {} ms before execution", taskName, waitTime);
@@ -95,11 +96,11 @@ public class DynamicThreadPool extends ThreadPoolExecutor {
     protected void afterExecute(Runnable command, Throwable t) {
         super.afterExecute(command, t);
         if (!(command instanceof NamedRunnable namedRunnable)) {
-            throw new IllegalArgumentException("NamedRunnable is required");
+            throw new RunnableNotSupportException();
         }
         namedRunnable.setEndTime(System.currentTimeMillis());
 
-        if (this.threadPoolConfig.getMonitor().getEnabled()) {
+        if (Boolean.TRUE.equals(this.threadPoolConfig.getMonitor().getEnabled())) {
             String taskName = namedRunnable.getName();
             long executionTime = namedRunnable.getEndTime() - namedRunnable.getStartTime();
             log.debug("Task {} executed in {} ms", taskName, executionTime);
@@ -228,9 +229,8 @@ public class DynamicThreadPool extends ThreadPoolExecutor {
         @Override
         public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
 
-            if (executor instanceof DynamicThreadPool dynamicThreadPool && r instanceof NamedRunnable task && dynamicThreadPool.threadPoolConfig.getMonitor().getEnabled()) {
+            if (executor instanceof DynamicThreadPool dynamicThreadPool && r instanceof NamedRunnable task && Boolean.TRUE.equals(dynamicThreadPool.threadPoolConfig.getMonitor().getEnabled())) {
                 dynamicThreadPool.getCollector().ifPresent(metricsCollector -> metricsCollector.increaseTaskRejectedCount(task.getName()));
-//                log.warn("Task {} is rejected", task.getName());
             }
 
             realHandler.rejectedExecution(r, executor);

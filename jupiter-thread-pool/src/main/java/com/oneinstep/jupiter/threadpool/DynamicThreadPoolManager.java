@@ -49,7 +49,7 @@ public class DynamicThreadPoolManager {
 
     @PostConstruct
     public void init() {
-        if (dynamicThreadPoolProperties != null && dynamicThreadPoolProperties.getAdaptive() != null && dynamicThreadPoolProperties.getAdaptive().getEnabled()) {
+        if (dynamicThreadPoolProperties != null && dynamicThreadPoolProperties.getAdaptive() != null && Boolean.TRUE.equals(dynamicThreadPoolProperties.getAdaptive().getEnabled())) {
             scheduledExecutorService.scheduleAtFixedRate(this::monitorAndAdjustThreadPools,
                     60000, dynamicThreadPoolProperties.getAdaptive().getAdjustmentIntervalMs(), TimeUnit.MILLISECONDS);
         }
@@ -299,31 +299,35 @@ public class DynamicThreadPoolManager {
         RejectPolicyEnum.getPolicyByName(newConfig.getPolicy());
 
         if (newConfig.getAdaptive() != null) {
-            if (newConfig.getAdaptive().getQueueUsageThreshold() != null && (newConfig.getAdaptive().getQueueUsageThreshold() < 1 || newConfig.getAdaptive().getQueueUsageThreshold() > 100)) {
-                log.error("Modify thread pool [{}] failed, queueUsageThreshold < 1 or queueUsageThreshold > 100", poolName);
-                throw new IllegalArgumentException("queueUsageThreshold < 1 or queueUsageThreshold > 100");
-            }
-            if (newConfig.getAdaptive().getThreadUsageThreshold() != null && (newConfig.getAdaptive().getThreadUsageThreshold() < 1 || newConfig.getAdaptive().getThreadUsageThreshold() > 100)) {
-                log.error("Modify thread pool [{}] failed, threadUsageThreshold < 1 or threadUsageThreshold > 100", poolName);
-                throw new IllegalArgumentException("threadUsageThreshold < 1 or threadUsageThreshold > 100");
-            }
-            if (newConfig.getAdaptive().getWaitTimeThresholdMs() != null && (newConfig.getAdaptive().getWaitTimeThresholdMs() < 10 || newConfig.getAdaptive().getWaitTimeThresholdMs() > 10000)) {
-                log.error("Modify thread pool [{}] failed, executionTimeThresholdMs < 10 or executionTimeThresholdMs > 10000", poolName);
-                throw new IllegalArgumentException("executionTimeThresholdMs < 10 or executionTimeThresholdMs > 10000");
-            }
+            checkAdaptive(newConfig, poolName);
+        }
+    }
 
-            Boolean enabled = newConfig.getAdaptive().getEnabled();
-            if (Boolean.FALSE.equals(enabled)) {
-                newConfig.getAdaptive().setOnlyIncrease(null);
-                newConfig.getAdaptive().setQueueUsageThreshold(null);
-                newConfig.getAdaptive().setThreadUsageThreshold(null);
-                newConfig.getAdaptive().setWaitTimeThresholdMs(null);
-            } else {
-                newConfig.getAdaptive().setOnlyIncrease(newConfig.getAdaptive().getOnlyIncrease() == null ? DefaultConfigConstants.DEFAULT_ONLY_INCREASE : newConfig.getAdaptive().getOnlyIncrease());
-                newConfig.getAdaptive().setQueueUsageThreshold(newConfig.getAdaptive().getQueueUsageThreshold() == null ? DefaultConfigConstants.DEFAULT_ADAPTIVE_QUEUE_THRESHOLD : newConfig.getAdaptive().getQueueUsageThreshold());
-                newConfig.getAdaptive().setThreadUsageThreshold(newConfig.getAdaptive().getThreadUsageThreshold() == null ? DefaultConfigConstants.DEFAULT_ADAPTIVE_THREAD_THRESHOLD : newConfig.getAdaptive().getThreadUsageThreshold());
-                newConfig.getAdaptive().setWaitTimeThresholdMs(newConfig.getAdaptive().getWaitTimeThresholdMs() == null ? DefaultConfigConstants.DEFAULT_ADAPTIVE_TIME_THRESHOLD : newConfig.getAdaptive().getWaitTimeThresholdMs());
-            }
+    private static void checkAdaptive(ThreadPoolConfig newConfig, String poolName) {
+        if (newConfig.getAdaptive().getQueueUsageThreshold() != null && (newConfig.getAdaptive().getQueueUsageThreshold() < 1 || newConfig.getAdaptive().getQueueUsageThreshold() > 100)) {
+            log.error("Modify thread pool [{}] failed, queueUsageThreshold < 1 or queueUsageThreshold > 100", poolName);
+            throw new IllegalArgumentException("queueUsageThreshold < 1 or queueUsageThreshold > 100");
+        }
+        if (newConfig.getAdaptive().getThreadUsageThreshold() != null && (newConfig.getAdaptive().getThreadUsageThreshold() < 1 || newConfig.getAdaptive().getThreadUsageThreshold() > 100)) {
+            log.error("Modify thread pool [{}] failed, threadUsageThreshold < 1 or threadUsageThreshold > 100", poolName);
+            throw new IllegalArgumentException("threadUsageThreshold < 1 or threadUsageThreshold > 100");
+        }
+        if (newConfig.getAdaptive().getWaitTimeThresholdMs() != null && (newConfig.getAdaptive().getWaitTimeThresholdMs() < 10 || newConfig.getAdaptive().getWaitTimeThresholdMs() > 10000)) {
+            log.error("Modify thread pool [{}] failed, executionTimeThresholdMs < 10 or executionTimeThresholdMs > 10000", poolName);
+            throw new IllegalArgumentException("executionTimeThresholdMs < 10 or executionTimeThresholdMs > 10000");
+        }
+
+        Boolean enabled = newConfig.getAdaptive().getEnabled();
+        if (Boolean.FALSE.equals(enabled)) {
+            newConfig.getAdaptive().setOnlyIncrease(null);
+            newConfig.getAdaptive().setQueueUsageThreshold(null);
+            newConfig.getAdaptive().setThreadUsageThreshold(null);
+            newConfig.getAdaptive().setWaitTimeThresholdMs(null);
+        } else {
+            newConfig.getAdaptive().setOnlyIncrease(newConfig.getAdaptive().getOnlyIncrease() == null ? DefaultConfigConstants.DEFAULT_ONLY_INCREASE : newConfig.getAdaptive().getOnlyIncrease());
+            newConfig.getAdaptive().setQueueUsageThreshold(newConfig.getAdaptive().getQueueUsageThreshold() == null ? DefaultConfigConstants.DEFAULT_ADAPTIVE_QUEUE_THRESHOLD : newConfig.getAdaptive().getQueueUsageThreshold());
+            newConfig.getAdaptive().setThreadUsageThreshold(newConfig.getAdaptive().getThreadUsageThreshold() == null ? DefaultConfigConstants.DEFAULT_ADAPTIVE_THREAD_THRESHOLD : newConfig.getAdaptive().getThreadUsageThreshold());
+            newConfig.getAdaptive().setWaitTimeThresholdMs(newConfig.getAdaptive().getWaitTimeThresholdMs() == null ? DefaultConfigConstants.DEFAULT_ADAPTIVE_TIME_THRESHOLD : newConfig.getAdaptive().getWaitTimeThresholdMs());
         }
     }
 
@@ -471,7 +475,7 @@ public class DynamicThreadPoolManager {
             throw new NoSuchNamedThreadPoolException("pool not found");
         }
         // 检查全局开关
-        if (dynamicThreadPoolProperties != null && dynamicThreadPoolProperties.getAdaptive() != null && dynamicThreadPoolProperties.getAdaptive().getEnabled()) {
+        if (dynamicThreadPoolProperties != null && dynamicThreadPoolProperties.getAdaptive() != null && Boolean.TRUE.equals(dynamicThreadPoolProperties.getAdaptive().getEnabled())) {
             DynamicThreadPool dynamicThreadPool = applicationContext.getBean(poolName, DynamicThreadPool.class);
 
             // 只有开启了监控，才能开启自适应
