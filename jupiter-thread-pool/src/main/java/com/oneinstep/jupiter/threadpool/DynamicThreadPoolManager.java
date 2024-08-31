@@ -2,6 +2,8 @@ package com.oneinstep.jupiter.threadpool;
 
 import com.oneinstep.jupiter.threadpool.config.*;
 import com.oneinstep.jupiter.threadpool.support.*;
+import com.oneinstep.jupiter.threadpool.web.SwitchAdaptiveParam;
+import com.oneinstep.jupiter.threadpool.web.SwitchMonitorParam;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;

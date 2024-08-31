@@ -3,8 +3,6 @@ package com.oneinstep.jupiter.threadpool.web;
 import com.oneinstep.jupiter.threadpool.DynamicThreadPoolManager;
 import com.oneinstep.jupiter.threadpool.config.ThreadPoolConfig;
 import com.oneinstep.jupiter.threadpool.support.NoSuchNamedThreadPoolException;
-import com.oneinstep.jupiter.threadpool.support.SwitchAdaptiveParam;
-import com.oneinstep.jupiter.threadpool.support.SwitchMonitorParam;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;

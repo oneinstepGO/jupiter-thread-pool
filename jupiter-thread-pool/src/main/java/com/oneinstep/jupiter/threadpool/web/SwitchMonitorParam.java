@@ -1,4 +1,4 @@
-package com.oneinstep.jupiter.threadpool.support;
+package com.oneinstep.jupiter.threadpool.web;
 
 import jakarta.annotation.Nonnull;
 
