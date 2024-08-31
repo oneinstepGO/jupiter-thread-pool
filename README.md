@@ -13,6 +13,18 @@
 - **支持多种拒绝策略**：包括 `AbortPolicy`、`CallerRunsPolicy`、`DiscardOldestPolicy`、`DiscardPolicy`。
 - **全局配置选项**：可对所有线程池生效的全局配置。
 
+#### 功能展示
+![](https://mp-img-1300842660.cos.ap-guangzhou.myqcloud.com/1725035752510-83b95327-bc6f-4437-a6fd-1b867603c6ed.png)
+
+![](https://mp-img-1300842660.cos.ap-guangzhou.myqcloud.com/1725043065094-87f62eaf-69a7-4d77-a009-46c8b013c4a3.png)
+
+
+![机器全局监控](https://mp-img-1300842660.cos.ap-guangzhou.myqcloud.com/1725041761800-7d340971-2475-4470-a935-fcb05f2b1c94.png)
+
+![线程池监控](https://mp-img-1300842660.cos.ap-guangzhou.myqcloud.com/1725049340538-4c21325d-76f3-4994-817a-6983b09598ec.png)
+
+![任务监控](https://mp-img-1300842660.cos.ap-guangzhou.myqcloud.com/1725049423826-dab5c911-9934-47a0-9b35-7cc9f0cb4d84.png)
+
 #### 全局配置参数
 
 - `dynamic-thread-pool.monitor.export.enabled`：是否开启监控指标的暴露，默认 `true`。
@@ -92,3 +104,15 @@
 3. 访问 `http://localhost:8081/thread-pool` 查看线程池管理页面，点击线程池列表的监控按钮，查看对应的线程池监控图表。
 
 通过上述步骤，你可以快速集成并使用本项目提供的线程池监控与管理功能。如果有任何问题或建议，欢迎反馈。
+
+#### 相关阅读
+
+- [还在为“线程池调优”而烦恼吗？](https://mp.weixin.qq.com/s/tqH9ywEZfsBPZChUUAmODg)
+- [如何利用 Prometheus 和 Grafana 监控你的应用？](https://mp.weixin.qq.com/s/Icccgmv8MGM6Kl4duENedg)
+
+---
+
+欢迎关注我的公众号“**子安聊代码**”，一起探讨技术。 
+<div style="text-align: center;">
+    <img src="https://mp-img-1300842660.cos.ap-guangzhou.myqcloud.com/1724139391246-0dfa7dad-5977-44c1-90ca-55539184d575.jpg" style="width: 100px;" alt="">
+</div>
