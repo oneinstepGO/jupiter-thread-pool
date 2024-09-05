@@ -1,7 +1,11 @@
 package com.oneinstep.jupiter.threadpool;
 
+import com.google.common.util.concurrent.Striped;
 import com.oneinstep.jupiter.threadpool.config.*;
-import com.oneinstep.jupiter.threadpool.support.*;
+import com.oneinstep.jupiter.threadpool.support.BlockingQueueEnum;
+import com.oneinstep.jupiter.threadpool.support.IpUtil;
+import com.oneinstep.jupiter.threadpool.support.NoSuchNamedThreadPoolException;
+import com.oneinstep.jupiter.threadpool.support.RejectPolicyEnum;
 import com.oneinstep.jupiter.threadpool.web.SwitchAdaptiveParam;
 import com.oneinstep.jupiter.threadpool.web.SwitchMonitorParam;
 import jakarta.annotation.Nonnull;
@@ -15,12 +19,13 @@ import org.springframework.beans.factory.support.BeanDefinitionBuilder;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.Lock;
 import java.util.stream.Stream;
 
 /**
@@ -29,7 +34,10 @@ import java.util.stream.Stream;
 @Component
 @Primary
 @Slf4j
+@DependsOn("dynamicThreadPoolAutoConfiguration")
 public class DynamicThreadPoolManager {
+
+    private static final int STRIPE_SIZE = 100;
 
     @Resource
     private ApplicationContext applicationContext;
@@ -39,7 +47,7 @@ public class DynamicThreadPoolManager {
     private String applicationName;
 
     // 线程池名称 -> 读写锁
-    private static final Map<String, ReentrantReadWriteLock> LOCK_MAP = new HashMap<>();
+    private static final Map<String, Striped<Lock>> LOCK_MAP = new HashMap<>();
 
     // 自适应调整线程池的步长
     private static final int THREAD_ADJUST_STEP = 2;
@@ -51,10 +59,21 @@ public class DynamicThreadPoolManager {
 
     @PostConstruct
     public void init() {
+
+        // 初始化 LOCK_MAP
+        for (String poolName : getAllPoolNames()) {
+            LOCK_MAP.put(poolName, Striped.lock(STRIPE_SIZE));
+        }
+
         if (dynamicThreadPoolProperties != null && dynamicThreadPoolProperties.getAdaptive() != null && Boolean.TRUE.equals(dynamicThreadPoolProperties.getAdaptive().getEnabled())) {
             scheduledExecutorService.scheduleAtFixedRate(this::monitorAndAdjustThreadPools,
                     60000, dynamicThreadPoolProperties.getAdaptive().getAdjustmentIntervalMs(), TimeUnit.MILLISECONDS);
         }
+    }
+
+    public List<String> getAllPoolNames() {
+        String[] beanNamesForType = applicationContext.getBeanNamesForType(DynamicThreadPool.class);
+        return Arrays.asList(beanNamesForType);
     }
 
     public void monitorAndAdjustThreadPools() {
@@ -126,6 +145,18 @@ public class DynamicThreadPoolManager {
             needDecreaseThreads = true;
         }
 
+        Striped<Lock> lock = LOCK_MAP.computeIfAbsent(poolName, k -> Striped.lock(STRIPE_SIZE));
+        Lock writeLock = lock.get(poolName);
+        writeLock.lock();
+        try {
+            doAutoAdjust(threadPool, needIncreaseCoreThreads, corePoolSize, maxPoolSize, needIncreaseThreads, poolName, needDecreaseThreads);
+        } finally {
+            writeLock.unlock();
+        }
+
+    }
+
+    private static void doAutoAdjust(DynamicThreadPool threadPool, boolean needIncreaseCoreThreads, int corePoolSize, int maxPoolSize, boolean needIncreaseThreads, String poolName, boolean needDecreaseThreads) {
         if (needIncreaseCoreThreads && corePoolSize < maxPoolSize) {
             int newCorePoolSize = Math.min(corePoolSize + THREAD_ADJUST_STEP, maxPoolSize);
             threadPool.setCorePoolSize(newCorePoolSize);
@@ -146,7 +177,6 @@ public class DynamicThreadPoolManager {
     }
 
 
-
     /**
      * 修改线程池参数
      *
@@ -156,8 +186,16 @@ public class DynamicThreadPoolManager {
         log.info("Modify thread pool: {}", newConfig);
         String poolName = newConfig.getPoolName();
         checkParams(newConfig);
-        resetIfChanged(poolName, newConfig);
-        log.info("Modify thread pool [{}] success", poolName);
+
+        Striped<Lock> lock = LOCK_MAP.computeIfAbsent(poolName, k -> Striped.lock(STRIPE_SIZE));
+        Lock writeLock = lock.get(poolName);
+        writeLock.lock();
+        try {
+            resetIfChanged(poolName, newConfig);
+            log.info("Modify thread pool [{}] success", poolName);
+        } finally {
+            writeLock.unlock();
+        }
     }
 
     private void resetIfChanged(String poolName, ThreadPoolConfig newConfig) {
@@ -338,7 +376,6 @@ public class DynamicThreadPoolManager {
         return !applicationContext.containsBean(poolName) || !(applicationContext.getBean(poolName) instanceof DynamicThreadPool);
     }
 
-
     public ThreadPoolConfig getPoolConfig(String poolName) {
         if (isThreadPoolNotExist(poolName)) {
             return null;
@@ -355,7 +392,6 @@ public class DynamicThreadPoolManager {
             monitorUrl = monitor.getBaseMonitorUrl() + "&var-application=" + applicationName + "&var-server_ip=" + IpUtil.getServerIp() + "&var-thread_pool=" + poolName;
             threadPoolConfig.getMonitor().setMonitorUrl(monitorUrl);
         }
-
 
         return threadPoolConfig;
     }
@@ -375,8 +411,9 @@ public class DynamicThreadPoolManager {
     public void resetThreadPool(@Nonnull String poolName, ThreadPoolConfig newConfig) {
         log.info("Reset thread pool: {}", poolName);
 
-        ReentrantReadWriteLock lock = LOCK_MAP.computeIfAbsent(poolName, k -> new ReentrantReadWriteLock());
-        lock.writeLock().lock();
+        Striped<Lock> lock = LOCK_MAP.computeIfAbsent(poolName, k -> Striped.lock(STRIPE_SIZE));
+        Lock writeLock = lock.get(poolName);
+        writeLock.lock();
         try {
             if (isThreadPoolNotExist(poolName)) {
                 return;
@@ -432,7 +469,7 @@ public class DynamicThreadPoolManager {
 
             log.info("Reset thread pool [{}] success", poolName);
         } finally {
-            lock.writeLock().unlock();
+            writeLock.unlock();
         }
     }
 
@@ -443,15 +480,16 @@ public class DynamicThreadPoolManager {
      * @return DynamicThreadPool
      */
     public Optional<DynamicThreadPool> getDynamicThreadPool(@Nonnull String poolName) {
-        ReentrantReadWriteLock lock = LOCK_MAP.computeIfAbsent(poolName, k -> new ReentrantReadWriteLock());
-        lock.readLock().lock();
+        Striped<Lock> lock = LOCK_MAP.computeIfAbsent(poolName, k -> Striped.lock(10));
+        Lock readLock = lock.get(poolName);
+        readLock.lock();
         try {
             if (isThreadPoolNotExist(poolName)) {
                 return Optional.empty();
             }
             return Optional.of(applicationContext.getBean(poolName, DynamicThreadPool.class));
         } finally {
-            lock.readLock().unlock();
+            readLock.unlock();
         }
     }
 

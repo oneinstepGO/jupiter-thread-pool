@@ -8,7 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Random;
 
 @Slf4j
-public class TestThread extends Thread {
+public class NamedRunnableTestThread extends Thread {
 
     private final DynamicThreadPoolManager dynamicThreadPoolManager;
     private final String poolName;
@@ -18,7 +18,7 @@ public class TestThread extends Thread {
     private Long taskSleepTime;
     private final Integer errorRate;
 
-    public TestThread(DynamicThreadPoolManager dynamicThreadPoolManager, String poolName, String taskName, Long taskExecuteTime, Long taskSleepTime, Integer errorRate) {
+    public NamedRunnableTestThread(DynamicThreadPoolManager dynamicThreadPoolManager, String poolName, String taskName, Long taskExecuteTime, Long taskSleepTime, Integer errorRate) {
         this.dynamicThreadPoolManager = dynamicThreadPoolManager;
         this.poolName = poolName;
         this.taskName = taskName;

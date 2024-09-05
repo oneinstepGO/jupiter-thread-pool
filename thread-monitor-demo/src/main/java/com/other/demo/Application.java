@@ -9,10 +9,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 @EnableDynamicThreadPool
 @Slf4j
-public class ThreadMonitorDemoApplication {
+public class Application {
 
     public static void main(String[] args) {
-        SpringApplication.run(ThreadMonitorDemoApplication.class, args);
+        SpringApplication.run(Application.class, args);
     }
 
 }

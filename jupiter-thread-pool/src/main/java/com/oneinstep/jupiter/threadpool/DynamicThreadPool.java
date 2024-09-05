@@ -4,6 +4,7 @@ import com.oneinstep.jupiter.threadpool.config.AdaptiveConfig;
 import com.oneinstep.jupiter.threadpool.config.MonitorConfig;
 import com.oneinstep.jupiter.threadpool.config.ThreadPoolConfig;
 import com.oneinstep.jupiter.threadpool.metrics.ThreadPoolMetricsCollector;
+import com.oneinstep.jupiter.threadpool.support.CallableNotSupportException;
 import com.oneinstep.jupiter.threadpool.support.RejectPolicyEnum;
 import com.oneinstep.jupiter.threadpool.support.RunnableNotSupportException;
 import io.micrometer.core.instrument.util.NamedThreadFactory;
@@ -11,12 +12,12 @@ import jakarta.annotation.Nonnull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.RejectedExecutionHandler;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -24,6 +25,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * 可以实时监控线程池的任务执行情况
  * {{@link ThreadPoolMetricsCollector}}
  * 需要使用 namedThreadPool.execute(new NamedTask("taskName", runnable)) 来提交任务，而非 submit
+ * 提交callable任务时，需要使用 namedThreadPool.submit(new NamedCallable("taskName", callable)) 来提交任务，而非 execute
  * 唯一获取DynamicThreadPool线程池实例的方式是通过 {{@link DynamicThreadPoolManager#getDynamicThreadPool(String)}}
  * <p>
  * or <code>ApplicationContext.getBean(poolName, DynamicThreadPool.class)</code>
@@ -32,6 +34,19 @@ import java.util.concurrent.atomic.AtomicLong;
 public class DynamicThreadPool extends ThreadPoolExecutor {
 
     private final ThreadPoolConfig threadPoolConfig;
+
+    // 通过反射获取FutureTask的callable字段
+    private static final VarHandle CALLABLE_HANDLE;
+
+    // 初始化
+    static {
+        try {
+            MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(FutureTask.class, MethodHandles.lookup());
+            CALLABLE_HANDLE = lookup.findVarHandle(FutureTask.class, "callable", Callable.class);
+        } catch (ReflectiveOperationException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
 
     // 线程池名称
     @Getter
@@ -54,58 +69,104 @@ public class DynamicThreadPool extends ThreadPoolExecutor {
 
     // 添加任务等待时间的记录
     @Override
-    public void execute(@Nonnull Runnable command) {
-        if (!(command instanceof NamedRunnable namedRunnable)) {
-            log.warn("NamedRunnable is required, but got {}", command.getClass());
+    public void execute(@Nonnull Runnable r) {
+        if (r instanceof NamedRunnable namedRunnable) {
+            namedRunnable.setSubmitTime(System.currentTimeMillis());
+            super.execute(namedRunnable);
+        } else if (r instanceof FutureTask<?> futureTask) {
+            Callable<?> callable = (Callable<?>) CALLABLE_HANDLE.get(futureTask);
+            if (callable instanceof NamedCallable namedCallable) {
+                namedCallable.setSubmitTime(System.currentTimeMillis());
+                super.execute(futureTask);
+            } else {
+                throw new RunnableNotSupportException();
+            }
+        } else {
             throw new RunnableNotSupportException();
         }
-
-        long submitTime = System.currentTimeMillis();
-        namedRunnable.setSubmitTime(submitTime);
-        super.execute(namedRunnable);  // 确保任务被提交到线程池中
     }
 
     @Override
     protected void beforeExecute(Thread t, Runnable r) {
         super.beforeExecute(t, r);
-        if (!(r instanceof NamedRunnable namedRunnable)) {
+        if (r instanceof NamedRunnable namedRunnable) {
+            namedRunnable.setStartTime(System.currentTimeMillis());
+            if (Boolean.TRUE.equals(this.threadPoolConfig.getMonitor().getEnabled())) {
+                String taskName = namedRunnable.getName();
+                long waitTime = namedRunnable.getStartTime() - namedRunnable.getSubmitTime();
+                log.debug("Task {} waited {} ms before execution", taskName, waitTime);
+
+                registerTaskWaitTime(taskName, waitTime);
+            }
+        } else if (r instanceof FutureTask<?> futureTask) {
+            try {
+                Callable<?> callable = (Callable<?>) CALLABLE_HANDLE.get(futureTask);
+                if (callable instanceof NamedCallable namedCallable) {
+                    log.info("beforeExecute namedCallable, namedCallable:{}", namedCallable);
+                    namedCallable.setStartTime(System.currentTimeMillis());
+                    if (Boolean.TRUE.equals(this.threadPoolConfig.getMonitor().getEnabled())) {
+                        String taskName = namedCallable.getName();
+                        long waitTime = namedCallable.getStartTime() - namedCallable.getSubmitTime();
+                        log.debug("Task {} waited {} ms before execution", taskName, waitTime);
+                        registerTaskWaitTime(taskName, waitTime);
+                    }
+                } else {
+                    throw new CallableNotSupportException();
+                }
+            } catch (CallableNotSupportException callableNotSupportException) {
+                throw callableNotSupportException;
+            } catch (Exception e) {
+                log.error("Failed to get callable field from FutureTask", e);
+            }
+        } else {
             throw new RunnableNotSupportException();
         }
-        namedRunnable.setStartTime(System.currentTimeMillis());
 
-        if (Boolean.TRUE.equals(this.threadPoolConfig.getMonitor().getEnabled())) {
-            String taskName = namedRunnable.getName();
-            long waitTime = namedRunnable.getStartTime() - namedRunnable.getSubmitTime();
-            log.debug("Task {} waited {} ms before execution", taskName, waitTime);
+    }
 
-            getCollector().ifPresent(metricsCollector -> {
-                boolean taskRegistered = metricsCollector.isTaskRegistered(taskName);
-                if (!taskRegistered) {
-                    synchronized (this) {
-                        if (!metricsCollector.isTaskRegistered(taskName)) {
-                            metricsCollector.registerTaskMetrics(taskName);
-                        }
+    private void registerTaskWaitTime(String taskName, long waitTime) {
+        getCollector().ifPresent(metricsCollector -> {
+            boolean taskRegistered = metricsCollector.isTaskRegistered(taskName);
+            if (!taskRegistered) {
+                synchronized (this) {
+                    if (!metricsCollector.isTaskRegistered(taskName)) {
+                        metricsCollector.registerTaskMetrics(taskName);
                     }
                 }
-                metricsCollector.addTaskWaitTime(taskName, waitTime);
-            });
-        }
+            }
+            metricsCollector.addTaskWaitTime(taskName, waitTime);
+        });
     }
 
     @Override
-    protected void afterExecute(Runnable command, Throwable t) {
-        super.afterExecute(command, t);
-        if (!(command instanceof NamedRunnable namedRunnable)) {
+    protected void afterExecute(Runnable r, Throwable t) {
+        super.afterExecute(r, t);
+        if (r instanceof NamedRunnable namedRunnable) {
+
+            namedRunnable.setEndTime(System.currentTimeMillis());
+            if (Boolean.TRUE.equals(this.threadPoolConfig.getMonitor().getEnabled())) {
+                String taskName = namedRunnable.getName();
+                long executionTime = namedRunnable.getEndTime() - namedRunnable.getStartTime();
+                log.debug("Task {} executed in {} ms", taskName, executionTime);
+
+                getCollector().ifPresent(metricsCollector -> recordTaskAfterFinish(metricsCollector, t, taskName, executionTime));
+            }
+        } else if (r instanceof FutureTask<?> futureTask) {
+            Callable<?> callable = (Callable<?>) CALLABLE_HANDLE.get(futureTask);
+            if (callable instanceof NamedCallable namedCallable) {
+                log.info("afterExecute namedCallable, namedCallable:{}", namedCallable);
+                namedCallable.setEndTime(System.currentTimeMillis());
+                if (Boolean.TRUE.equals(this.threadPoolConfig.getMonitor().getEnabled())) {
+                    String taskName = namedCallable.getName();
+                    long executionTime = namedCallable.getEndTime() - namedCallable.getStartTime();
+                    log.debug("Task {} executed in {} ms", taskName, executionTime);
+                    getCollector().ifPresent(metricsCollector -> recordTaskAfterFinish(metricsCollector, t, taskName, executionTime));
+                }
+            } else {
+                throw new CallableNotSupportException();
+            }
+        } else {
             throw new RunnableNotSupportException();
-        }
-        namedRunnable.setEndTime(System.currentTimeMillis());
-
-        if (Boolean.TRUE.equals(this.threadPoolConfig.getMonitor().getEnabled())) {
-            String taskName = namedRunnable.getName();
-            long executionTime = namedRunnable.getEndTime() - namedRunnable.getStartTime();
-            log.debug("Task {} executed in {} ms", taskName, executionTime);
-
-            getCollector().ifPresent(metricsCollector -> recordTaskAfterFinish(metricsCollector, t, taskName, executionTime));
         }
     }
 
