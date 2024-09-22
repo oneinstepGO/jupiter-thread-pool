@@ -81,6 +81,7 @@
 3. **启动项目**
 
    在启动类上添加 `@EnableDynamicThreadPool` 注解，启动你的项目。
+   > 需要添加 JVM 参数  `--add-opens java.base/java.util.concurrent=ALL-UNNAMED`
 
 4. **访问管理界面**
 

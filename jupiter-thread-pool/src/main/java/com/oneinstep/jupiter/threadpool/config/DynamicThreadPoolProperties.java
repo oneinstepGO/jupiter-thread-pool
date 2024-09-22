@@ -4,7 +4,12 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.io.Serial;
+import java.io.Serializable;
+import java.util.HashMap;
 import java.util.Map;
+
+import static com.oneinstep.jupiter.threadpool.config.DefaultConfigConstants.*;
 
 /**
  * Named thread pool properties.
@@ -12,31 +17,39 @@ import java.util.Map;
 @Data
 @Component
 @ConfigurationProperties(prefix = "dynamic-thread-pool")
-public class DynamicThreadPoolProperties {
+public class DynamicThreadPoolProperties implements Serializable {
+    @Serial
+    private static final long serialVersionUID = -1L;
 
-    private Map<String, ThreadPoolConfig> pools;
+    private final Map<String, ThreadPoolConfig> pools = new HashMap<>();
 
-    private GlobalMonitorConfig monitor;
+    private final GlobalMonitorConfig monitor = new GlobalMonitorConfig();
 
-    private GlobalAdaptiveConfig adaptive;
+    private final GlobalAdaptiveConfig adaptive = new GlobalAdaptiveConfig();
 
     @Data
-    public static class GlobalMonitorConfig {
-        private MetricsExportConfig export;
+    public static class GlobalMonitorConfig implements Serializable {
+        @Serial
+        private static final long serialVersionUID = -1L;
+        private final MetricsExportConfig export = new MetricsExportConfig();
         private String baseMonitorUrl;
     }
 
     @Data
-    public static class MetricsExportConfig {
-        private Boolean enabled;
-        private String step;
-        private Integer port;
+    public static class MetricsExportConfig implements Serializable {
+        @Serial
+        private static final long serialVersionUID = -1L;
+        private boolean enabled = DEFAULT_ENABLE_METRICS_EXPORT;
+        private String step = DEFAULT_METRICS_EXPORT_STEP;
+        private int port = DEFAULT_METRICS_EXPORT_PORT;
     }
 
     @Data
-    public static class GlobalAdaptiveConfig {
-        private Boolean enabled = false; // 是否开启自适应，默认关闭
-        private Long adjustmentIntervalMs = 30000L; // 调整间隔，默认30秒
+    public static class GlobalAdaptiveConfig implements Serializable {
+        @Serial
+        private static final long serialVersionUID = -1L;
+        private boolean enabled = DEFAULT_ENABLE_ADAPTIVE;
+        private long adjustmentIntervalMs = DEFAULT_ADJUSTMENT_INTERVAL_MS;
     }
 
 }

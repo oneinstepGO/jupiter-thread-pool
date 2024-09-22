@@ -65,7 +65,7 @@ public class DynamicThreadPoolManager {
             LOCK_MAP.put(poolName, Striped.lock(STRIPE_SIZE));
         }
 
-        if (dynamicThreadPoolProperties != null && dynamicThreadPoolProperties.getAdaptive() != null && Boolean.TRUE.equals(dynamicThreadPoolProperties.getAdaptive().getEnabled())) {
+        if (dynamicThreadPoolProperties != null && dynamicThreadPoolProperties.getAdaptive() != null && dynamicThreadPoolProperties.getAdaptive().isEnabled()) {
             scheduledExecutorService.scheduleAtFixedRate(this::monitorAndAdjustThreadPools,
                     60000, dynamicThreadPoolProperties.getAdaptive().getAdjustmentIntervalMs(), TimeUnit.MILLISECONDS);
         }
@@ -97,13 +97,13 @@ public class DynamicThreadPoolManager {
         String poolName = threadPool.getPoolName();
         ThreadPoolConfig threadPoolConfig = threadPool.getUnmodifyThreadPoolConfig();
         AdaptiveConfig adaptiveConfig = threadPoolConfig.getAdaptive();
-        if (adaptiveConfig == null || !adaptiveConfig.getEnabled()) {
+        if (adaptiveConfig == null || !adaptiveConfig.isEnabled()) {
             log.debug("Adaptive config is disabled for pool {}", poolName);
             return;
         }
 
         MonitorConfig monitor = threadPoolConfig.getMonitor();
-        if (monitor == null || !monitor.getEnabled()) {
+        if (monitor == null || !monitor.isEnabled()) {
             log.debug("Monitor is disabled for pool {}", poolName);
             return;
         }
@@ -114,10 +114,10 @@ public class DynamicThreadPoolManager {
         int maxPoolSize = threadPool.getMaximumPoolSize();
         double avgWaitTime = threadPool.getAverageWaitTime();
 
-        boolean onlyIncrease = adaptiveConfig.getOnlyIncrease() == null ? DefaultConfigConstants.DEFAULT_ONLY_INCREASE : adaptiveConfig.getOnlyIncrease();
-        double queueUsageThreshold = adaptiveConfig.getQueueUsageThreshold() == null ? DefaultConfigConstants.DEFAULT_ADAPTIVE_QUEUE_THRESHOLD / 100.00 : adaptiveConfig.getQueueUsageThreshold() / 100.00;
-        double threadUsageThreshold = adaptiveConfig.getThreadUsageThreshold() == null ? DefaultConfigConstants.DEFAULT_ADAPTIVE_THREAD_THRESHOLD / 100.00 : adaptiveConfig.getThreadUsageThreshold() / 100.00;
-        int waitTimeThresholdMs = adaptiveConfig.getWaitTimeThresholdMs() == null ? DefaultConfigConstants.DEFAULT_ADAPTIVE_TIME_THRESHOLD : adaptiveConfig.getWaitTimeThresholdMs();
+        boolean onlyIncrease = adaptiveConfig.isOnlyIncrease();
+        double queueUsageThreshold = adaptiveConfig.getQueueUsageThreshold() / 100.00;
+        double threadUsageThreshold = adaptiveConfig.getThreadUsageThreshold() / 100.00;
+        int waitTimeThresholdMs = adaptiveConfig.getWaitTimeThresholdMs();
 
         double threadUsageRate = (double) activeThreads / maxPoolSize;
         double queueUsageRate;
@@ -233,13 +233,13 @@ public class DynamicThreadPoolManager {
             needChangeCore = true;
         }
         long oldKeepAliveTimeMs = oldConfig.getKeepAliveTimeMs();
-        if (newConfig.getKeepAliveTimeMs() != null && !Objects.equals(newConfig.getKeepAliveTimeMs(), oldKeepAliveTimeMs)) {
+        if (!Objects.equals(newConfig.getKeepAliveTimeMs(), oldKeepAliveTimeMs)) {
             needChangeKeepAlive = true;
         }
         if (StringUtils.isNotBlank(newConfig.getPolicy()) && !newConfig.getPolicy().equals(oldConfig.getPolicy())) {
             needChangeHandler = true;
         }
-        if (newConfig.getMonitor() != null && (!Objects.equals(newConfig.getMonitor().getEnabled(), oldConfig.getMonitor().getEnabled())
+        if (newConfig.getMonitor() != null && (!Objects.equals(newConfig.getMonitor().isEnabled(), oldConfig.getMonitor().isEnabled())
                 || !Objects.equals(newConfig.getMonitor().getTimeWindowSeconds(), oldConfig.getMonitor().getTimeWindowSeconds())
                 || !Objects.equals(newConfig.getMonitor().getMonitorUrl(), oldConfig.getMonitor().getMonitorUrl()))) {
             needChangeMonitor = true;
@@ -267,15 +267,6 @@ public class DynamicThreadPoolManager {
     }
 
     private void mayUpdateNewConfig(ThreadPoolConfig oldConfig, ThreadPoolConfig newConfig) {
-        if (newConfig.getMaxPoolSize() == null) {
-            newConfig.setMaxPoolSize(oldConfig.getMaxPoolSize());
-        }
-        if (newConfig.getCorePoolSize() == null) {
-            newConfig.setCorePoolSize(oldConfig.getCorePoolSize());
-        }
-        if (newConfig.getKeepAliveTimeMs() == null) {
-            newConfig.setKeepAliveTimeMs(oldConfig.getKeepAliveTimeMs());
-        }
         if (newConfig.getWorkQueue() == null) {
             newConfig.setWorkQueue(oldConfig.getWorkQueue());
         }
@@ -298,17 +289,14 @@ public class DynamicThreadPoolManager {
         if (workQueue != null && StringUtils.isNotBlank(workQueue.getType())) {
             String queueType = workQueue.getType();
             BlockingQueueEnum queueEnum = BlockingQueueEnum.getQueueByName(queueType);
-            Integer queueCapacity = workQueue.getCapacity();
-            if (queueCapacity != null && queueCapacity < 0) {
+            int queueCapacity = workQueue.getCapacity();
+            if (queueCapacity < 0) {
                 log.error("Modify thread pool [{}] failed, queue capacity < 0", poolName);
                 throw new IllegalArgumentException("queue capacity < 0");
             }
 
             if (BlockingQueueEnum.SYNCHRONOUS_QUEUE.equals(queueEnum)) {
-                newConfig.getWorkQueue().setCapacity(null);
-            } else if (queueCapacity == null) {
-                log.error("Modify thread pool [{}] failed, queue capacity is null", poolName);
-                throw new IllegalArgumentException("queue capacity is null");
+                newConfig.getWorkQueue().setCapacity(0);
             }
         }
     }
@@ -325,13 +313,8 @@ public class DynamicThreadPoolManager {
             throw new IllegalArgumentException("coreSize or maxSize < 0 or coreSize > maxSize");
         }
 
-        if (newConfig.getKeepAliveTimeMs() != null && newConfig.getKeepAliveTimeMs() < 0) {
-            log.error("Modify thread pool [{}] failed, keepAliveTimeMs < 0", poolName);
-            throw new IllegalArgumentException("keepAliveTimeMs < 0");
-        }
-
         if (newConfig.getMonitor() != null
-                && (newConfig.getMonitor().getEnabled() && (newConfig.getMonitor().getTimeWindowSeconds() == null || newConfig.getMonitor().getTimeWindowSeconds() <= 0))) {
+                && (newConfig.getMonitor().isEnabled() && (newConfig.getMonitor().getTimeWindowSeconds() <= 0))) {
             log.error("Modify thread pool [{}] failed, monitor intervalMs <= 0", poolName);
             throw new IllegalArgumentException("monitor intervalMs <= 0");
         }
@@ -344,30 +327,23 @@ public class DynamicThreadPoolManager {
     }
 
     private static void checkAdaptive(ThreadPoolConfig newConfig, String poolName) {
-        if (newConfig.getAdaptive().getQueueUsageThreshold() != null && (newConfig.getAdaptive().getQueueUsageThreshold() < 1 || newConfig.getAdaptive().getQueueUsageThreshold() > 100)) {
+        if (newConfig.getAdaptive().getQueueUsageThreshold() < 1 || newConfig.getAdaptive().getQueueUsageThreshold() > 100) {
             log.error("Modify thread pool [{}] failed, queueUsageThreshold < 1 or queueUsageThreshold > 100", poolName);
             throw new IllegalArgumentException("queueUsageThreshold < 1 or queueUsageThreshold > 100");
         }
-        if (newConfig.getAdaptive().getThreadUsageThreshold() != null && (newConfig.getAdaptive().getThreadUsageThreshold() < 1 || newConfig.getAdaptive().getThreadUsageThreshold() > 100)) {
+        if (newConfig.getAdaptive().getThreadUsageThreshold() < 1 || newConfig.getAdaptive().getThreadUsageThreshold() > 100) {
             log.error("Modify thread pool [{}] failed, threadUsageThreshold < 1 or threadUsageThreshold > 100", poolName);
             throw new IllegalArgumentException("threadUsageThreshold < 1 or threadUsageThreshold > 100");
         }
-        if (newConfig.getAdaptive().getWaitTimeThresholdMs() != null && (newConfig.getAdaptive().getWaitTimeThresholdMs() < 10 || newConfig.getAdaptive().getWaitTimeThresholdMs() > 10000)) {
+        if (newConfig.getAdaptive().getWaitTimeThresholdMs() < 10 || newConfig.getAdaptive().getWaitTimeThresholdMs() > 10000) {
             log.error("Modify thread pool [{}] failed, executionTimeThresholdMs < 10 or executionTimeThresholdMs > 10000", poolName);
             throw new IllegalArgumentException("executionTimeThresholdMs < 10 or executionTimeThresholdMs > 10000");
         }
 
-        Boolean enabled = newConfig.getAdaptive().getEnabled();
-        if (Boolean.FALSE.equals(enabled)) {
-            newConfig.getAdaptive().setOnlyIncrease(null);
-            newConfig.getAdaptive().setQueueUsageThreshold(null);
-            newConfig.getAdaptive().setThreadUsageThreshold(null);
-            newConfig.getAdaptive().setWaitTimeThresholdMs(null);
-        } else {
-            newConfig.getAdaptive().setOnlyIncrease(newConfig.getAdaptive().getOnlyIncrease() == null ? DefaultConfigConstants.DEFAULT_ONLY_INCREASE : newConfig.getAdaptive().getOnlyIncrease());
-            newConfig.getAdaptive().setQueueUsageThreshold(newConfig.getAdaptive().getQueueUsageThreshold() == null ? DefaultConfigConstants.DEFAULT_ADAPTIVE_QUEUE_THRESHOLD : newConfig.getAdaptive().getQueueUsageThreshold());
-            newConfig.getAdaptive().setThreadUsageThreshold(newConfig.getAdaptive().getThreadUsageThreshold() == null ? DefaultConfigConstants.DEFAULT_ADAPTIVE_THREAD_THRESHOLD : newConfig.getAdaptive().getThreadUsageThreshold());
-            newConfig.getAdaptive().setWaitTimeThresholdMs(newConfig.getAdaptive().getWaitTimeThresholdMs() == null ? DefaultConfigConstants.DEFAULT_ADAPTIVE_TIME_THRESHOLD : newConfig.getAdaptive().getWaitTimeThresholdMs());
+        boolean enabled = newConfig.getAdaptive().isEnabled();
+        if (enabled && newConfig.getMonitor() != null && !newConfig.getMonitor().isEnabled()) {
+            log.error("Modify thread pool [{}] failed, monitor is disabled", poolName);
+            throw new IllegalArgumentException("monitor is disabled, please enable monitor first");
         }
     }
 
@@ -405,7 +381,21 @@ public class DynamicThreadPoolManager {
     }
 
     public void resetThreadPool(String poolName) {
-        resetThreadPool(poolName, new ThreadPoolConfig());
+        // use the default config from yml config
+        Map<String, ThreadPoolConfig> pools = dynamicThreadPoolProperties.getPools();
+        if (pools == null || pools.isEmpty()) {
+            log.error("Reset thread pool failed, no pool found in config");
+            return;
+        }
+
+        ThreadPoolConfig newConfig = pools.get(poolName);
+        // copy the configuration to avoid the original configuration being modified
+        if (newConfig != null) {
+            ThreadPoolConfig copy = newConfig.copy();
+            resetThreadPool(poolName, copy);
+        } else {
+            log.error("Reset thread pool failed, pool not found: {}", poolName);
+        }
     }
 
     public void resetThreadPool(@Nonnull String poolName, ThreadPoolConfig newConfig) {
@@ -501,9 +491,9 @@ public class DynamicThreadPoolManager {
         boolean enable = param.enableMonitor();
         DynamicThreadPool dynamicThreadPool = applicationContext.getBean(poolName, DynamicThreadPool.class);
         final MonitorConfig oldMonitor = dynamicThreadPool.getUnmodifyThreadPoolConfig().getMonitor();
-        long ms = oldMonitor.getTimeWindowSeconds() == null ? DefaultConfigConstants.DEFAULT_TIME_WINDOW_SECONDS : oldMonitor.getTimeWindowSeconds();
+        long ms = oldMonitor.getTimeWindowSeconds();
         dynamicThreadPool.updateMonitor(new MonitorConfig(enable,
-                enable ? ms : null,
+                enable ? ms : DefaultConfigConstants.DEFAULT_TIME_WINDOW_SECONDS,
                 oldMonitor.getMonitorUrl()));
     }
 
@@ -515,15 +505,15 @@ public class DynamicThreadPoolManager {
             throw new NoSuchNamedThreadPoolException("pool not found");
         }
         // 检查全局开关
-        if (dynamicThreadPoolProperties != null && dynamicThreadPoolProperties.getAdaptive() != null && Boolean.TRUE.equals(dynamicThreadPoolProperties.getAdaptive().getEnabled())) {
+        if (dynamicThreadPoolProperties != null && dynamicThreadPoolProperties.getAdaptive() != null && dynamicThreadPoolProperties.getAdaptive().isEnabled()) {
             DynamicThreadPool dynamicThreadPool = applicationContext.getBean(poolName, DynamicThreadPool.class);
 
             // 只有开启了监控，才能开启自适应
-            if (dynamicThreadPool.getUnmodifyThreadPoolConfig().getMonitor() == null || !dynamicThreadPool.getUnmodifyThreadPoolConfig().getMonitor().getEnabled()) {
+            if (dynamicThreadPool.getUnmodifyThreadPoolConfig().getMonitor() == null || !dynamicThreadPool.getUnmodifyThreadPoolConfig().getMonitor().isEnabled()) {
                 log.error("Switch adaptive failed, monitor is disabled");
                 throw new IllegalArgumentException("monitor is disabled, please enable monitor first");
             }
-            AdaptiveConfig newAdaptiveConfig = getNewAdaptiveConfig(enabled);
+            AdaptiveConfig newAdaptiveConfig = new AdaptiveConfig(enabled);
             dynamicThreadPool.updateAdaptive(newAdaptiveConfig);
             log.info("Switch adaptive success, pool: {}, enable: {}", poolName, param.enableAdaptive());
         } else {
@@ -532,13 +522,4 @@ public class DynamicThreadPoolManager {
 
     }
 
-    private static AdaptiveConfig getNewAdaptiveConfig(boolean enabled) {
-        AdaptiveConfig newAdaptiveConfig = new AdaptiveConfig();
-        newAdaptiveConfig.setEnabled(enabled);
-        newAdaptiveConfig.setOnlyIncrease(enabled ? DefaultConfigConstants.DEFAULT_ONLY_INCREASE : null);
-        newAdaptiveConfig.setQueueUsageThreshold(enabled ? DefaultConfigConstants.DEFAULT_ADAPTIVE_QUEUE_THRESHOLD : null);
-        newAdaptiveConfig.setThreadUsageThreshold(enabled ? DefaultConfigConstants.DEFAULT_ADAPTIVE_THREAD_THRESHOLD : null);
-        newAdaptiveConfig.setWaitTimeThresholdMs(enabled ? DefaultConfigConstants.DEFAULT_ADAPTIVE_TIME_THRESHOLD : null);
-        return newAdaptiveConfig;
-    }
 }

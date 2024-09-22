@@ -36,13 +36,29 @@ public class DefaultConfigConstants {
     public static final String DEFAULT_POLICY = "AbortPolicy";
 
     // 默认的是否开启自适应
-    public static final Boolean DEFAULT_ENABLE_ADAPTIVE = false;
+    public static final boolean DEFAULT_ENABLE_ADAPTIVE = false;
 
-    public static final Boolean DEFAULT_ONLY_INCREASE = false;
+    // 自动调整-默认的是否只增加线程数
+    public static final boolean DEFAULT_ONLY_INCREASE = false;
 
+    // 自动调整-默认的任务等待时间阈值
     public static final int DEFAULT_ADAPTIVE_TIME_THRESHOLD = 1000;
 
+    // 自动调整-默认的队列使用率阈值
     public static final int DEFAULT_ADAPTIVE_QUEUE_THRESHOLD = 80;
 
+    // 自动调整-默认的线程使用率阈值
     public static final int DEFAULT_ADAPTIVE_THREAD_THRESHOLD = 80;
+
+    // 是否开启监控指标导出
+    public static final boolean DEFAULT_ENABLE_METRICS_EXPORT = true;
+
+    // 默认的监控指标采集间隔
+    public static final String DEFAULT_METRICS_EXPORT_STEP = "1s";
+
+    // 默认的监控端口
+    public static final int DEFAULT_METRICS_EXPORT_PORT = 18081;
+
+    // 默认的调整间隔
+    public static final long DEFAULT_ADJUSTMENT_INTERVAL_MS = 15000;
 }

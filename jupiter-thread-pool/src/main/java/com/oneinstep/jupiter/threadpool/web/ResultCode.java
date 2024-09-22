@@ -1,5 +1,8 @@
-package com.oneinstep.jupiter.threadpool.support;
+package com.oneinstep.jupiter.threadpool.web;
 
+import lombok.Getter;
+
+@Getter
 public enum ResultCode {
     FAIL(500, "Fail"), SUCCESS(200, "Success");
 
@@ -11,11 +14,4 @@ public enum ResultCode {
         this.message = message;
     }
 
-    public int getCode() {
-        return code;
-    }
-
-    public String getMessage() {
-        return message;
-    }
 }

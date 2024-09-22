@@ -75,7 +75,7 @@ public class DynamicThreadPool extends ThreadPoolExecutor {
             super.execute(namedRunnable);
         } else if (r instanceof FutureTask<?> futureTask) {
             Callable<?> callable = (Callable<?>) CALLABLE_HANDLE.get(futureTask);
-            if (callable instanceof NamedCallable namedCallable) {
+            if (callable instanceof NamedCallable<?> namedCallable) {
                 namedCallable.setSubmitTime(System.currentTimeMillis());
                 super.execute(futureTask);
             } else {
@@ -91,7 +91,7 @@ public class DynamicThreadPool extends ThreadPoolExecutor {
         super.beforeExecute(t, r);
         if (r instanceof NamedRunnable namedRunnable) {
             namedRunnable.setStartTime(System.currentTimeMillis());
-            if (Boolean.TRUE.equals(this.threadPoolConfig.getMonitor().getEnabled())) {
+            if (this.threadPoolConfig.getMonitor().isEnabled()) {
                 String taskName = namedRunnable.getName();
                 long waitTime = namedRunnable.getStartTime() - namedRunnable.getSubmitTime();
                 log.debug("Task {} waited {} ms before execution", taskName, waitTime);
@@ -101,10 +101,10 @@ public class DynamicThreadPool extends ThreadPoolExecutor {
         } else if (r instanceof FutureTask<?> futureTask) {
             try {
                 Callable<?> callable = (Callable<?>) CALLABLE_HANDLE.get(futureTask);
-                if (callable instanceof NamedCallable namedCallable) {
+                if (callable instanceof NamedCallable<?> namedCallable) {
                     log.info("beforeExecute namedCallable, namedCallable:{}", namedCallable);
                     namedCallable.setStartTime(System.currentTimeMillis());
-                    if (Boolean.TRUE.equals(this.threadPoolConfig.getMonitor().getEnabled())) {
+                    if (this.threadPoolConfig.getMonitor().isEnabled()) {
                         String taskName = namedCallable.getName();
                         long waitTime = namedCallable.getStartTime() - namedCallable.getSubmitTime();
                         log.debug("Task {} waited {} ms before execution", taskName, waitTime);
@@ -144,7 +144,7 @@ public class DynamicThreadPool extends ThreadPoolExecutor {
         if (r instanceof NamedRunnable namedRunnable) {
 
             namedRunnable.setEndTime(System.currentTimeMillis());
-            if (Boolean.TRUE.equals(this.threadPoolConfig.getMonitor().getEnabled())) {
+            if (this.threadPoolConfig.getMonitor().isEnabled()) {
                 String taskName = namedRunnable.getName();
                 long executionTime = namedRunnable.getEndTime() - namedRunnable.getStartTime();
                 log.debug("Task {} executed in {} ms", taskName, executionTime);
@@ -153,10 +153,10 @@ public class DynamicThreadPool extends ThreadPoolExecutor {
             }
         } else if (r instanceof FutureTask<?> futureTask) {
             Callable<?> callable = (Callable<?>) CALLABLE_HANDLE.get(futureTask);
-            if (callable instanceof NamedCallable namedCallable) {
+            if (callable instanceof NamedCallable<?> namedCallable) {
                 log.info("afterExecute namedCallable, namedCallable:{}", namedCallable);
                 namedCallable.setEndTime(System.currentTimeMillis());
-                if (Boolean.TRUE.equals(this.threadPoolConfig.getMonitor().getEnabled())) {
+                if (this.threadPoolConfig.getMonitor().isEnabled()) {
                     String taskName = namedCallable.getName();
                     long executionTime = namedCallable.getEndTime() - namedCallable.getStartTime();
                     log.debug("Task {} executed in {} ms", taskName, executionTime);
@@ -172,12 +172,12 @@ public class DynamicThreadPool extends ThreadPoolExecutor {
 
     // 获取监控收集器
     private Optional<ThreadPoolMetricsCollector> getCollector() {
-        if (Boolean.FALSE.equals(this.threadPoolConfig.getMonitor().getEnabled())) {
+        if (Boolean.FALSE.equals(this.threadPoolConfig.getMonitor().isEnabled())) {
             return Optional.empty();
         }
         if (this.collector == null) {
             synchronized (this) {
-                if (this.collector == null && this.threadPoolConfig.getMonitor().getEnabled()) {
+                if (this.collector == null && this.threadPoolConfig.getMonitor().isEnabled()) {
                     log.info("Creating ThreadPoolMetricsCollector for {}", this.threadPoolConfig.getPoolName());
                     this.collector = new ThreadPoolMetricsCollector(this);
                 }
@@ -199,13 +199,13 @@ public class DynamicThreadPool extends ThreadPoolExecutor {
 
     // 更新监控配置
     public synchronized void updateMonitor(final MonitorConfig newMonitorConfig) {
-        final boolean enabled = newMonitorConfig.getEnabled();
+        final boolean enabled = newMonitorConfig.isEnabled();
         final Long newTimeWindowSeconds = enabled ? newMonitorConfig.getTimeWindowSeconds() : null;
         final MonitorConfig oldMonitorConfig = this.threadPoolConfig.getMonitor();
         final String newMonitorUrl = newMonitorConfig.getMonitorUrl() == null ? oldMonitorConfig.getMonitorUrl() : newMonitorConfig.getMonitorUrl();
         this.threadPoolConfig.getMonitor().setMonitorUrl(newMonitorUrl);
         if (enabled) {
-            if (Boolean.FALSE.equals(oldMonitorConfig.getEnabled())) {
+            if (!oldMonitorConfig.isEnabled()) {
                 // 旧配置未启用，直接启用新配置
                 this.threadPoolConfig.getMonitor().setEnabled(true);
                 this.threadPoolConfig.getMonitor().setTimeWindowSeconds(newTimeWindowSeconds);
@@ -229,7 +229,7 @@ public class DynamicThreadPool extends ThreadPoolExecutor {
                         log.error("Failed to create new ThreadPoolMetricsCollector", e);
                         // 恢复旧的收集器和监控配置
                         this.collector = oldCollector;
-                        this.threadPoolConfig.getMonitor().setEnabled(oldMonitorConfig.getEnabled());
+                        this.threadPoolConfig.getMonitor().setEnabled(oldMonitorConfig.isEnabled());
                         this.threadPoolConfig.getMonitor().setTimeWindowSeconds(oldMonitorConfig.getTimeWindowSeconds());
                     }
                 } else {
@@ -244,10 +244,9 @@ public class DynamicThreadPool extends ThreadPoolExecutor {
     }
 
     private void disableMonitor(final MonitorConfig oldMonitorConfig) {
-        if (Boolean.TRUE.equals(oldMonitorConfig.getEnabled())) {
+        if (oldMonitorConfig.isEnabled()) {
             synchronized (this) {
                 this.threadPoolConfig.getMonitor().setEnabled(false);
-                this.threadPoolConfig.getMonitor().setTimeWindowSeconds(null);
 
                 log.info("Disabling monitor for {}, monitorConfig: {}", this.poolName, threadPoolConfig.getMonitor());
                 if (this.collector != null) {
@@ -261,16 +260,10 @@ public class DynamicThreadPool extends ThreadPoolExecutor {
     }
 
     public synchronized void updateAdaptive(@Nonnull AdaptiveConfig newAdaptiveConfig) {
-
         // 如果AdaptiveConfig配置有变化，更新配置
-        final AdaptiveConfig oldAdaptiveConfig = this.threadPoolConfig.getAdaptive();
-        if (oldAdaptiveConfig == null) {
-            this.threadPoolConfig.setAdaptive(newAdaptiveConfig);
-            return;
-        }
 
-        this.threadPoolConfig.getAdaptive().setEnabled(newAdaptiveConfig.getEnabled());
-        this.threadPoolConfig.getAdaptive().setOnlyIncrease(newAdaptiveConfig.getOnlyIncrease());
+        this.threadPoolConfig.getAdaptive().setEnabled(newAdaptiveConfig.isEnabled());
+        this.threadPoolConfig.getAdaptive().setOnlyIncrease(newAdaptiveConfig.isOnlyIncrease());
         this.threadPoolConfig.getAdaptive().setQueueUsageThreshold(newAdaptiveConfig.getQueueUsageThreshold());
         this.threadPoolConfig.getAdaptive().setThreadUsageThreshold(newAdaptiveConfig.getThreadUsageThreshold());
         this.threadPoolConfig.getAdaptive().setWaitTimeThresholdMs(newAdaptiveConfig.getWaitTimeThresholdMs());
@@ -290,7 +283,7 @@ public class DynamicThreadPool extends ThreadPoolExecutor {
         @Override
         public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
 
-            if (executor instanceof DynamicThreadPool dynamicThreadPool && r instanceof NamedRunnable task && Boolean.TRUE.equals(dynamicThreadPool.threadPoolConfig.getMonitor().getEnabled())) {
+            if (executor instanceof DynamicThreadPool dynamicThreadPool && r instanceof NamedRunnable task && dynamicThreadPool.threadPoolConfig.getMonitor().isEnabled()) {
                 dynamicThreadPool.getCollector().ifPresent(metricsCollector -> metricsCollector.increaseTaskRejectedCount(task.getName()));
             }
 

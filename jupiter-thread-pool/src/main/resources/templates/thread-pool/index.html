@@ -41,14 +41,14 @@
             <td th:text="${pool.getWorkQueue().getCapacity()}"></td>
             <td>
                 <label>
-                    <input type="checkbox" class="form-check-input" th:checked="${pool.getMonitor().getEnabled()}"
+                    <input type="checkbox" class="form-check-input" th:checked="${pool.getMonitor().isEnabled()}"
                            data-toggle="switch" th:data-pool-name="${pool.getPoolName()}"
                            onchange="toggleMonitor(this)"/>
                 </label>
             </td>
             <td>
                 <label>
-                    <input type="checkbox" class="form-check-input" th:checked="${pool.getAdaptive().getEnabled()}"
+                    <input type="checkbox" class="form-check-input" th:checked="${pool.getAdaptive().isEnabled()}"
                            data-toggle="switch" th:data-pool-name="${pool.getPoolName()}"
                            onchange="toggleAdaptive(this)"/>
                 </label>
@@ -59,7 +59,7 @@
                 <button type="button" class="btn btn-warning btn-sm btn-spacing"
                         th:data-pool-name="${pool.getPoolName()}" onclick="showResetModal(this)">重置
                 </button>
-                <a th:if="${pool.getMonitor().getEnabled()}" th:href="${pool.getMonitor().getMonitorUrl()}"
+                <a th:if="${pool.getMonitor().isEnabled()}" th:href="${pool.getMonitor().getMonitorUrl()}"
                    class="btn btn-info btn-sm btn-spacing" target="_blank">跳转监控</a>
             </td>
         </tr>
@@ -110,6 +110,9 @@
             type: 'POST',
             contentType: 'application/json',
             data: JSON.stringify(data),
+            success: function () {
+                location.reload(); // Refresh the page on successful AJAX request
+            },
             error: function (error) {
                 console.error('Error updating monitor status:', error);
             }
@@ -129,6 +132,9 @@
             type: 'POST',
             contentType: 'application/json',
             data: JSON.stringify(data),
+            success: function () {
+                location.reload(); // Refresh the page on successful AJAX request
+            },
             error: function (error) {
                 console.error('Error updating Adaptive status:', error);
             }

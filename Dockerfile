@@ -26,4 +26,4 @@ EXPOSE 8081
 EXPOSE 18081
 
 # 设置容器启动时执行的命令
-ENTRYPOINT ["java", "-jar", "/usr/local/lib/thread-monitor-demo.jar"]
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /usr/local/lib/thread-monitor-demo.jar"]

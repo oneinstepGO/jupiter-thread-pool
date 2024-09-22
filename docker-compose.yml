@@ -44,6 +44,8 @@ services:
     ports:
       - "8081:8081"
       - "18081:18081"
+    environment:
+      - JAVA_OPTS=--add-opens java.base/java.util.concurrent=ALL-UNNAMED
     # 连接到 backend 网络
     networks:
       - backend

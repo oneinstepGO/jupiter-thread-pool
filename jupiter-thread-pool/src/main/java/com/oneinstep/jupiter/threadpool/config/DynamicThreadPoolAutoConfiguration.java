@@ -29,8 +29,9 @@ public class DynamicThreadPoolAutoConfiguration {
         }
         pools.forEach((name, config) -> {
             config.setPoolName(name);
-            DynamicThreadPool threadPool = new DynamicThreadPool(config);
-            applicationContext.registerBean(name, DynamicThreadPool.class, () -> threadPool, bd -> bd.setAutowireCandidate(false));
+            // copy the configuration to avoid the original configuration being modified
+            ThreadPoolConfig copy = config.copy();
+            applicationContext.registerBean(name, DynamicThreadPool.class, () -> new DynamicThreadPool(copy), bd -> bd.setAutowireCandidate(false));
         });
     }
 }

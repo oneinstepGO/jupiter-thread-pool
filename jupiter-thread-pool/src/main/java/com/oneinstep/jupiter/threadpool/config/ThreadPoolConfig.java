@@ -2,19 +2,24 @@ package com.oneinstep.jupiter.threadpool.config;
 
 import lombok.Data;
 
+import java.io.Serial;
+import java.io.Serializable;
+
 /**
  * Named thread pool properties.
  */
 @Data
-public class ThreadPoolConfig {
+public class ThreadPoolConfig implements Serializable {
+    @Serial
+    private static final long serialVersionUID = -1L;
     // The name of the thread pool.
     private String poolName;
     // The core number of threads.
-    private Integer corePoolSize = DefaultConfigConstants.DEFAULT_CORE_POOL_SIZE;
+    private int corePoolSize = DefaultConfigConstants.DEFAULT_CORE_POOL_SIZE;
     // The maximum allowed number of threads.
-    private Integer maxPoolSize = DefaultConfigConstants.DEFAULT_MAX_POOL_SIZE;
+    private int maxPoolSize = DefaultConfigConstants.DEFAULT_MAX_POOL_SIZE;
     // The time to keep the thread alive.
-    private Long keepAliveTimeMs = DefaultConfigConstants.DEFAULT_KEEP_ALIVE_TIME_MS;
+    private long keepAliveTimeMs = DefaultConfigConstants.DEFAULT_KEEP_ALIVE_TIME_MS;
     // The work queue configuration.
     private WorkQueueConfig workQueue = new WorkQueueConfig();
     // The policy for the thread pool.
@@ -32,16 +37,9 @@ public class ThreadPoolConfig {
         copy.setMaxPoolSize(this.getMaxPoolSize());
         copy.setKeepAliveTimeMs(this.getKeepAliveTimeMs());
         copy.setPolicy(this.getPolicy());
-        copy.getWorkQueue().setType(this.getWorkQueue().getType());
-        copy.getWorkQueue().setCapacity(this.getWorkQueue().getCapacity());
-        copy.getMonitor().setEnabled(this.getMonitor().getEnabled());
-        copy.getMonitor().setTimeWindowSeconds(this.getMonitor().getTimeWindowSeconds());
-        copy.getMonitor().setMonitorUrl(this.getMonitor().getMonitorUrl());
-        copy.getAdaptive().setEnabled(this.getAdaptive().getEnabled());
-        copy.getAdaptive().setOnlyIncrease(this.getAdaptive().getOnlyIncrease());
-        copy.getAdaptive().setQueueUsageThreshold(this.getAdaptive().getQueueUsageThreshold());
-        copy.getAdaptive().setThreadUsageThreshold(this.getAdaptive().getThreadUsageThreshold());
-        copy.getAdaptive().setWaitTimeThresholdMs(this.getAdaptive().getWaitTimeThresholdMs());
+        copy.setWorkQueue(this.getWorkQueue().copy());
+        copy.setMonitor(this.getMonitor().copy());
+        copy.setAdaptive(this.getAdaptive().copy());
         return copy;
     }
 

@@ -2,7 +2,6 @@ package com.oneinstep.jupiter.threadpool.web;
 
 import com.oneinstep.jupiter.threadpool.DynamicThreadPoolManager;
 import com.oneinstep.jupiter.threadpool.config.ThreadPoolConfig;
-import com.oneinstep.jupiter.threadpool.support.Result;
 import jakarta.annotation.Nonnull;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -24,8 +23,8 @@ public class ThreadPoolRestController {
      * @return index
      */
     @GetMapping({"pools", "pools/"})
-    public Result<List<ThreadPoolConfig>> pools() {
-        return Result.success(dynamicThreadPoolManager.getAllPoolConfig());
+    public ApiResult<List<ThreadPoolConfig>> pools() {
+        return ApiResult.success(dynamicThreadPoolManager.getAllPoolConfig());
     }
 
     /**
@@ -35,8 +34,8 @@ public class ThreadPoolRestController {
      * @return EDIT
      */
     @GetMapping("{poolName}")
-    public Result<ThreadPoolConfig> pool(@PathVariable @Nonnull String poolName) {
-        return Result.success(dynamicThreadPoolManager.getPoolConfig(poolName));
+    public ApiResult<ThreadPoolConfig> pool(@PathVariable @Nonnull String poolName) {
+        return ApiResult.success(dynamicThreadPoolManager.getPoolConfig(poolName));
     }
 
     /**
@@ -46,17 +45,17 @@ public class ThreadPoolRestController {
      * @return index
      */
     @PostMapping("{poolName}")
-    public Result<Void> modifyThreadPool(@PathVariable @Nonnull String poolName, @RequestBody ThreadPoolConfig request) {
+    public ApiResult<Void> modifyThreadPool(@PathVariable @Nonnull String poolName, @RequestBody ThreadPoolConfig request) {
         try {
             dynamicThreadPoolManager.modifyThreadPool(request);
         }
         // 成功则重定向到首页，失败留在当前页面，并显示错误信息
         catch (Exception e) {
             log.error("修改线程池失败", e);
-            return Result.fail(e.getMessage());
+            return ApiResult.fail(e.getMessage());
         }
 
-        return Result.success();
+        return ApiResult.success();
     }
 
     /**
@@ -66,36 +65,36 @@ public class ThreadPoolRestController {
      * @return index
      */
     @PostMapping("{poolName}/reset")
-    public Result<Void> resetThreadPool(@PathVariable @Nonnull String poolName) {
+    public ApiResult<Void> resetThreadPool(@PathVariable @Nonnull String poolName) {
         try {
             dynamicThreadPoolManager.resetThreadPool(poolName);
         } catch (Exception e) {
             log.error("重置线程池失败", e);
-            return Result.fail(e.getMessage());
+            return ApiResult.fail(e.getMessage());
         }
-        return Result.success();
+        return ApiResult.success();
     }
 
     @PostMapping("{poolName}/switchMonitor")
-    public Result<Void> switchMonitor(@PathVariable @Nonnull String poolName, boolean enable) {
+    public ApiResult<Void> switchMonitor(@PathVariable @Nonnull String poolName, boolean enable) {
         try {
             dynamicThreadPoolManager.switchMonitor(new SwitchMonitorParam(poolName, enable));
         } catch (Exception e) {
             log.error("切换监控状态失败", e);
-            return Result.fail(e.getMessage());
+            return ApiResult.fail(e.getMessage());
         }
-        return Result.success();
+        return ApiResult.success();
     }
 
     @PostMapping("/{poolName}/switchAdaptive")
-    public Result<Void> switchAdaptive(@PathVariable @Nonnull String poolName, boolean enable) {
+    public ApiResult<Void> switchAdaptive(@PathVariable @Nonnull String poolName, boolean enable) {
         try {
             dynamicThreadPoolManager.switchAdaptive(new SwitchAdaptiveParam(poolName, enable));
         } catch (Exception e) {
             log.error("切换自适应状态失败", e);
-            return Result.fail(e.getMessage());
+            return ApiResult.fail(e.getMessage());
         }
-        return Result.success();
+        return ApiResult.success();
     }
 
 }

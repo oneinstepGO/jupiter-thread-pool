@@ -89,7 +89,7 @@
                 <!-- 隐藏字段：默认值为 false -->
                 <input type="hidden" name="monitor.enabled" value="false"/>
                 <input type="checkbox" class="custom-control-input" id="monitorEnabled" name="monitor.enabled"
-                       th:checked="${threadPool.getMonitor().getEnabled()}" onclick="toggleMonitorTimeWindow()"
+                       th:checked="${threadPool.getMonitor().isEnabled()}" onclick="toggleMonitorTimeWindow()"
                        th:value="true"/>
                 <label class="custom-control-label" for="monitorEnabled"></label>
             </div>
@@ -113,7 +113,7 @@
                 <!-- 隐藏字段：默认值为 false -->
                 <input type="hidden" name="adaptive.enabled" value="false"/>
                 <input type="checkbox" class="custom-control-input" id="adaptiveEnabled" name="adaptive.enabled"
-                       th:checked="${threadPool.getAdaptive().getEnabled()}" onclick="toggleAdaptiveParamsWindow()"
+                       th:checked="${threadPool.getAdaptive().isEnabled()}" onclick="toggleAdaptiveParamsWindow()"
                        th:value="true"/>
                 <label class="custom-control-label" for="adaptiveEnabled"></label>
             </div>
@@ -124,7 +124,7 @@
                 <!-- 隐藏字段：默认值为 false -->
                 <input type="hidden" name="adaptive.onlyIncrease" value="false"/>
                 <input type="checkbox" class="custom-control-input" id="onlyIncrease" name="adaptive.onlyIncrease"
-                       th:checked="${threadPool.getAdaptive().getOnlyIncrease()}" th:value="true"/>
+                       th:checked="${threadPool.getAdaptive().isOnlyIncrease()}" th:value="true"/>
                 <label class="custom-control-label" for="onlyIncrease"></label>
             </div>
         </div>
