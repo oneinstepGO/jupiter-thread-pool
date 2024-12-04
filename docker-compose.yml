@@ -1,0 +1,54 @@
+services:
+  # Prometheus service
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus-thread-monitor
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    # 连接到 monitoring 网络
+    networks:
+      - monitoring
+      - backend
+
+  # Grafana service
+  grafana:
+    image: grafana/grafana
+    container_name: grafana-thread-monitor
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/provisioning/dashboards:/var/lib/grafana/dashboards
+    environment:
+      # 演示项目，关闭密码验证
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_NAME=Main Org.
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_DATASOURCE_PROMETHEUS=Prometheus-Thread-Monitor
+    # 连接到 monitoring 网络
+    networks:
+      - monitoring
+
+  # 后台服务
+  thread-monitor-demo:
+    build:
+      dockerfile: Dockerfile
+    restart: always
+    container_name: thread-monitor-demo
+    image: thread-monitor-demo
+    ports:
+      - "8081:8081"
+      - "18081:18081"
+    # 连接到 backend 网络
+    networks:
+      - backend
+
+# 定义两个网络
+networks:
+  monitoring:
+  backend:

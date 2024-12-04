@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: thread-monitor-demo
+
+dynamic-thread-pool:
+  pools:
+    # 线程池名称, 用于区分不同的线程池
+    bizThreadPool:
+      # 核心线程数，默认为 1
+      corePoolSize: 10
+      # 最大线程数， 默认为 系统可用核心数 * 2
+      maxPoolSize: 10
+      # 线程存活时间 ms，默认为 60000
+      keepAliveTimeMs: 6000
+      # 工作队列配置
+      workQueue:
+        # 队列类型, 可选 LinkedBlockingQueue, ArrayBlockingQueue, SynchronousQueue, PriorityBlockingQueue，默认为 LinkedBlockingQueue
+        type: "LinkedBlockingQueue"
+        # 队列容量，默认为 64
+        capacity: 32
+      # 拒绝策略, 可选 AbortPolicy, CallerRunsPolicy, DiscardPolicy, DiscardOldestPolicy，默认为 AbortPolicy
+      policy: "AbortPolicy"
+      # 监控配置
+      monitor:
+        # 是否开启监控，默认为 true
+        enabled: true
+        # 监控统计滑动窗口大小，单位秒，默认为 3秒
+        timeWindowSeconds: 3
+        # 监控地址，默认值由全局配置 baseMonitorUrl 拼接而成
+        monitorUrl: "http://localhost:3000/d/bdvpd6xgluyo0a/e7babf-e7a88b-e6b1a0-e79b91-e68ea7?orgId=1&from=now-15m&to=now&refresh=5s&var-application=thread-monitor-demo&var-server_ip=127.0.0.1&var-thread_pool=bizThreadPool&var-task_name=All"
+      adaptive:
+        # 是否开启自适应，默认为 false
+        enabled: true
+        # 是否只增加线程数，默认为 false
+        onlyIncrease: false
+        # 队列使用率阈值，默认为 80%
+        queueUsageThreshold: 80
+        # 线程使用率阈值，默认为 80%
+        threadUsageThreshold: 50
+        # 等待时间阈值，默认为 1000ms
+        waitTimeThresholdMs: 300
+    # 可以添加多个线程池配置
+    otherThreadPool:
+      corePoolSize: 5
+      maxPoolSize: 5
+      keepAliveTimeMs: 6000
+      workQueue:
+        type: "SynchronousQueue"
+        capacity: 256
+      policy: "CallerRunsPolicy"
+      monitor:
+        enabled: true
+        timeWindowSeconds: 3
+    # 添加线程池配置
+  # 可选全局配置，见 help.MD
+  monitor:
+    export:
+      # 是否开启监控数据导出，默认为 true
+      enabled: true
+      # 导出数据端口，默认为 18081
+      port: 18081
+      # 导出数据时间间隔，默认为 1s
+      step: 1s
+    # 监控面板地址
+    baseMonitorUrl: "http://localhost:3000/d/bdvpd6xgluyo0a/e7babf-e7a88b-e6b1a0-e79b91-e68ea7?orgId=1&from=now-15m&to=now&refresh=5s&var-task_name=All"
+  # 自适应全局配置
+  adaptive:
+    # 是否开启自适应线程池，默认为 false
+    enabled: true
+    # 调整周期，默认为 30000ms
+    adjustmentIntervalMs: 15000
+
+
+server:
+  port: 8081
